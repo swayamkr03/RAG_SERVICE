@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-orb" aria-hidden="true"></div>
+          <div>
+            <div class="brand-name">RAG<span class="brand-accent"> Workspace</span></div>
+            <div class="brand-sub">Document intelligence</div>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a class="nav-item active" href="#"><i class="ti ti-messages"></i><span>Chat</span></a>
+          <a class="nav-item" href="#"><i class="ti ti-files"></i><span>Documents</span></a>
+          <a class="nav-item" href="#"><i class="ti ti-settings"></i><span>Settings</span></a>
+        </nav>
+
+        <div class="sidebar-section">
+          <div class="section-label">Upload document</div>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" accept="application/pdf" id="pdf-input" aria-label="Choose PDF file" />
+            <div class="upload-glow" aria-hidden="true"></div>
+            <i class="ti ti-cloud-upload upload-icon" aria-hidden="true"></i>
+            <div class="upload-title">Drop your PDF here</div>
+            <div class="upload-sub">or click to browse files</div>
+          </div>
+          <div id="file-badge" class="file-badge" style="display:none">
+            <i class="ti ti-file-type-pdf"></i>
+            <span class="file-name" id="file-name">document.pdf</span>
+            <i class="ti ti-check file-check"></i>
+          </div>
+          <button class="btn-primary" id="upload-btn" disabled>
+            <i class="ti ti-database-import"></i>
+            Ingest document
+          </button>
+        </div>
+
+        <div class="sidebar-section doc-section">
+          <div class="section-label">Indexed documents</div>
+          <div class="doc-list" id="doc-list">
+            <div class="doc-empty"><i class="ti ti-inbox"></i> No documents yet</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-label">Retrieval settings</div>
+          <div class="setting-row">
+            <span class="setting-label"><i class="ti ti-stack-2"></i> Top-K chunks</span>
+            <input id="top-k-input" type="number" min="1" max="20" value="5" class="setting-input" aria-label="Top K chunks" />
+          </div>
+          <div class="setting-row">
+            <span class="setting-label"><i class="ti ti-brain"></i> Model</span>
+            <span class="model-badge">auto: OpenAI/local</span>
+          </div>
+        </div>
+
+        <div class="status-bar">
+          <span class="status-dot" id="status-dot"></span>
+          <div>
+            <div class="status-title" id="status-title">Ready</div>
+            <div class="status-sub" id="status-text">Upload a PDF to get started</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-area">
+        <header class="chat-header">
+          <div class="chat-header-left">
+            <div class="header-icon" aria-hidden="true"><i class="ti ti-sparkles"></i></div>
+            <div>
+              <div class="chat-title">Ask your document</div>
+              <div class="chat-sub" id="chat-sub">No document loaded</div>
+            </div>
+          </div>
+          <button class="btn-ghost" id="clear-btn">
+            <i class="ti ti-trash"></i> Clear chat
+          </button>
+        </header>
+
+        <div class="messages" id="messages" role="log" aria-live="polite">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-orb" aria-hidden="true">
+              <div class="orb-ring r1"></div>
+              <div class="orb-ring r2"></div>
+              <div class="orb-core"></div>
+            </div>
+            <div class="empty-title">Leverage <span class="accent-text">AI search,</span><br />understand your docs</div>
+            <div class="empty-sub">Upload a PDF from the sidebar and ask anything about its contents. Uses OpenAI when available and local fallback when quota is exhausted.</div>
+            <div class="pill-grid">
+              <button class="pill" type="button" onclick="setQ('What is the main topic of this document?')"><i class="ti ti-help-circle"></i> Main topic</button>
+              <button class="pill" type="button" onclick="setQ('Summarize the key findings and conclusions')"><i class="ti ti-list-search"></i> Key findings</button>
+              <button class="pill" type="button" onclick="setQ('What are the most important dates or numbers mentioned?')"><i class="ti ti-numbers"></i> Key data points</button>
+              <button class="pill" type="button" onclick="setQ('What questions does this document answer?')"><i class="ti ti-bulb"></i> What it answers</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer-inner">
+            <i class="ti ti-search composer-icon" aria-hidden="true"></i>
+            <input
+              class="composer-input"
+              id="question-input"
+              type="text"
+              placeholder="Ask anything about your document..."
+              autocomplete="off"
+              aria-label="Your question"
+            />
+            <button class="send-btn" id="send-btn" disabled aria-label="Send question">
+              <i class="ti ti-arrow-up"></i>
+            </button>
+          </div>
+          <div class="composer-hint">Press Enter to send</div>
+        </div>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
