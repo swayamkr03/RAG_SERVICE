@@ -75,3 +75,24 @@ class QdrantStorage:
                 sources.add(source)
         return {"contexts":contexts,"sources":list(sources)}
 
+
+    def get_payload_texts(self,limit:int=200):
+        points,_=self.client.scroll(
+            collection_name=self.collection,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        contexts=[]
+        sources=set()
+        for point in points:
+            payload=getattr(point,"payload",None) or {}
+            text=payload.get("text","")
+            source=payload.get("source","")
+            if text:
+                contexts.append(text)
+            if source:
+                sources.add(source)
+        return {"contexts":contexts,"sources":list(sources)}
+

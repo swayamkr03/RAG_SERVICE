@@ -33,6 +33,19 @@ class QueryRequest(BaseModel):
     top_k: int = 5
 
 
+STOP_WORDS={
+    "about","after","again","also","and","any","are","can","could","details",
+    "document","does","for","from","give","has","have","how","into","main",
+    "more","pdf","please","question","show","summary","tell","that","the",
+    "this","what","when","where","which","with","would","your"
+}
+DETAIL_TERMS={
+    "internship","duration","date","dates","stipend","compensation",
+    "remunerative","voluntary","eligibility","criteria","leave","offer",
+    "terms","organization","project","guide"
+}
+
+
 def _clean_text(text:str)->str:
     return re.sub(r"\s+", " ", text).strip()
 
@@ -42,15 +55,55 @@ def _sentence_split(text:str)->list[str]:
     return [item.strip() for item in re.split(r"(?<=[.!?])\s+", normalized) if item.strip()]
 
 
+def _question_terms(question:str)->set[str]:
+    return {
+        term
+        for term in re.findall(r"[a-zA-Z0-9]+", question.lower())
+        if len(term) > 2 and term not in STOP_WORDS
+    }
+
+
+def _rank_sentences(question:str, contexts:list[str])->list[str]:
+    terms=_question_terms(question)
+    lowered_question=question.lower()
+    if any(word in lowered_question for word in ["detail","internship","terms"]):
+        terms=terms | DETAIL_TERMS
+
+    seen=set()
+    ranked=[]
+    for context_index,context in enumerate(contexts):
+        for sentence_index,sentence in enumerate(_sentence_split(context)):
+            cleaned=_clean_text(sentence)
+            if not cleaned or cleaned.lower() in seen:
+                continue
+            seen.add(cleaned.lower())
+            sentence_lower=cleaned.lower()
+            score=sum(3 for term in terms if term in sentence_lower)
+            score+=sum(1 for term in terms if term in _clean_text(context).lower())
+            score-=context_index * 0.05
+            score-=sentence_index * 0.01
+            ranked.append((score,cleaned))
+
+    ranked.sort(key=lambda item:item[0],reverse=True)
+    return [sentence for score,sentence in ranked if score > 0]
+
+
+def _merge_contexts(*context_groups:list[str])->list[str]:
+    merged=[]
+    seen=set()
+    for contexts in context_groups:
+        for context in contexts:
+            key=_clean_text(context).lower()
+            if key and key not in seen:
+                seen.add(key)
+                merged.append(context)
+    return merged
+
+
 def _fallback_answer(question:str, contexts:list[str])->str:
     if not contexts:
         return "I could not find matching context in the indexed document."
 
-    question_terms={
-        term
-        for term in re.findall(r"[a-zA-Z0-9]+", question.lower())
-        if len(term) > 2
-    }
     sentences=[]
     for context in contexts:
         sentences.extend(_sentence_split(context))
@@ -59,18 +112,20 @@ def _fallback_answer(question:str, contexts:list[str])->str:
         preview=_clean_text(contexts[0])
         return preview[:500] + ("..." if len(preview) > 500 else "")
 
-    if any(word in question.lower() for word in ["topic", "about", "summary", "summarize"]):
+    lowered_question=question.lower()
+    ranked=_rank_sentences(question,contexts)
+
+    if any(word in lowered_question for word in ["detail","details","terms","internship"]):
+        best=ranked[:5] or sentences[:5]
+        return "\n".join(f"- {sentence}" for sentence in best)[:1000]
+
+    if any(word in lowered_question for word in ["summary","summarize","topic","about"]):
         first_context=_clean_text(contexts[0])
         first_sentences=_sentence_split(first_context)
-        answer=" ".join(first_sentences[:2]) if first_sentences else first_context
+        answer=" ".join((ranked[:2] or first_sentences[:2])) if first_sentences else first_context
         return answer[:650] + ("..." if len(answer) > 650 else "")
 
-    ranked=sorted(
-        sentences,
-        key=lambda sentence: sum(1 for term in question_terms if term in sentence.lower()),
-        reverse=True,
-    )
-    best=[sentence for sentence in ranked[:3] if sentence]
+    best=ranked[:3] or sentences[:3]
     answer=" ".join(best) or _clean_text(contexts[0])
     return answer[:750] + ("..." if len(answer) > 750 else "")
 
@@ -96,8 +151,13 @@ def answer_question(question:str, top_k:int=5)->ragQueryAndresult:
         raise ValueError("Question cannot be empty.")
 
     query_vec=embed_text([question])[0]
-    found=QdrantStorage().search(query_vec,top_k)
-    search_result=ragSearchresult(context=found["contexts"],sources=found["sources"])
+    store=QdrantStorage()
+    found=store.search(query_vec,top_k)
+    payloads=store.get_payload_texts()
+    reranked_contexts=_rank_sentences(question,payloads["contexts"])
+    combined_contexts=_merge_contexts(found["contexts"],reranked_contexts,payloads["contexts"][:2])
+    combined_sources=sorted(set(found["sources"]) | set(payloads["sources"]))
+    search_result=ragSearchresult(context=combined_contexts[:max(top_k,5)],sources=combined_sources)
     trimmed_contexts=[_clean_text(context)[:1200] for context in search_result.context[:3]]
     context_block="\n\n".join(f"- {c}"for c in trimmed_contexts)
 
