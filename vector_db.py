@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
@@ -6,6 +7,25 @@ from qdrant_client.models import VectorParams,Distance,PointStruct
 
 
 load_dotenv()
+
+
+def _validate_qdrant_url(url:str)->str:
+    parsed=urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(
+            "Invalid QDRANT_URL. Use only the Qdrant cluster URL, for example "
+            "https://your-cluster.region.cloud.qdrant.io"
+        )
+
+    for label in parsed.hostname.split("."):
+        if len(label) > 63:
+            raise ValueError(
+                "Invalid QDRANT_URL. A hostname part is too long. Do not paste "
+                "the Qdrant API key into QDRANT_URL. Put the cluster URL in "
+                "QDRANT_URL and the key in QDRANT_API_KEY."
+            )
+
+    return url.rstrip("/")
 
 
 class QdrantStorage:
@@ -16,6 +36,7 @@ class QdrantStorage:
         dim: int = 3072,
     ):
         url = url or os.getenv("QDRANT_URL", "http://localhost:6333")
+        url = _validate_qdrant_url(url)
         api_key = os.getenv("QDRANT_API_KEY")
         collection = collection or os.getenv("QDRANT_COLLECTION", "docs")
         self.client=QdrantClient(url=url,api_key=api_key,timeout=30)
