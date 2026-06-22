@@ -10,6 +10,7 @@ load_dotenv()
 
 
 def _validate_qdrant_url(url:str)->str:
+    url=url.strip().strip("\"'")
     parsed=urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError(
